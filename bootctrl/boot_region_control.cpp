@@ -13,7 +13,7 @@
 *  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
 *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
 *  NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
-*  SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
+*  SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED, INCORPORATED IN, OR
 *  SUPPLIED WITH THE MEDIATEK SOFTWARE, AND BUYER AGREES TO LOOK ONLY TO SUCH
 *  THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. MEDIATEK SHALL ALSO
 *  NOT BE RESPONSIBLE FOR ANY MEDIATEK SOFTWARE RELEASES MADE TO BUYER'S
@@ -33,75 +33,39 @@
 *
 *****************************************************************************/
 
-#include <errno.h>
-#include <fcntl.h>
-#include <string.h>
-#include <string>
 #include <android-base/logging.h>
-
-#if !defined(ARCH_X86)
-#include <ufs-mtk-ioctl.h>
-#include <sys/ioctl.h>
-#endif
 
 #include "boot_region_control_private.h"
 
 namespace android {
 namespace bootable {
-#if !defined(ARCH_X86)
-static bool ufs_set_active_boot_part(int boot)
-{
-    struct ufs_ioctl_query_data idata;
-    unsigned char buf[1];
-    int fd, ret = true;
 
-    fd = open("/dev/block/sdc", O_RDWR);
-    if (fd < 0) {
-        printf("%s: open device failed, err: %d\n", __func__, fd);
-        return false;
-    }
-
-    buf[0] = boot;           /* 1: BootLU A, 2: BootLU B */
-
-    idata.opcode = UPIU_QUERY_OPCODE_WRITE_ATTR;
-    idata.idn = QUERY_ATTR_IDN_BOOT_LUN_EN;
-    idata.idx = 0;
-    idata.buf_ptr = &buf[0];
-    idata.buf_byte = 1;
-
-    if (ioctl(fd, UFS_IOCTL_QUERY, &idata) < 0) {
-      LOG(ERROR) << "ufs_set boot_part fail";
-      ret = false;
-    }
-    close(fd);
-    return ret;
-}
-
+/*
+ * The MTK UFS "switch the boot LUN" ioctl is intentionally NOT implemented.
+ *
+ * The vendor struct ufs_ioctl_query_data used by the tree's ufs-mtk-ioctl.h is
+ * 16 bytes (__u32 opcode; __u8 idn; __u8 idx; __u16 buf_byte; __u8 *buf_ptr)
+ * and places the attribute value behind a user pointer. The kernel actually
+ * running on corot uses an 8-byte layout (__u32 opcode; __u8 idn;
+ * __u16 buf_size; __u8 buffer[0]) and reads the attribute value from
+ * buffer + sizeof(struct ufs_ioctl_query_data) == offset 8, i.e. the kernel
+ * would read the buf_ptr field itself as the attribute value. Its only check
+ * is "if (!att) return -EINVAL", so any non-zero pointer would be programmed
+ * straight into the UFS device's bBootLunEn attribute via ufshcd_query_attr.
+ * That can corrupt the boot-LUN selection of the device's own boot path.
+ *
+ * The previous implementation also declared "int fd, ret = true" and returned
+ * ret without ever inspecting errno, so ioctl failures were reported to the
+ * framework as success.
+ *
+ * A/B slot switching is handled by the AOSP libboot_control through /misc,
+ * which is what the bootloader reads. Doing nothing here is correct and safe.
+ */
 bool BootControlExt::SetBootRegionSlot(unsigned int slot) {
-  int boot_part = 0;
-
-
-  LOG(ERROR) << "setActiveBootSlot SetBootRegionSlot " << slot;
-  /* slot 0 is A , slot 1 is B */
-  if (slot >= 2) {
-    LOG(ERROR) << "Wrong Slot value " << slot;
-    return 0;
-  }
-
-  if(slot)
-    boot_part = 2;
-  else
-    boot_part = 1;
-
-  if (!ufs_set_active_boot_part(boot_part))
-      return false;
-
+  LOG(INFO) << "SetBootRegionSlot(" << slot << ") ignored: UFS boot-LUN "
+            << "switching is disabled (see boot_region_control.cpp)";
   return true;
 }
-#else
-bool BootControlExt::SetBootRegionSlot(unsigned int slot) {
-  return true;
-}
-#endif //#if !defined(ARCH_X86)
+
 }
 }
