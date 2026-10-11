@@ -1,6 +1,7 @@
 import /keymint.service.mitee.rc
 import /tee-supplicant.rc
 import /miteelog.rc
+import /xiaomi.haptic.hal.rc
 
 on init
     setprop sys.usb.configfs 1
@@ -118,4 +119,5 @@ on boot
     start health-hal-2-1
     start mifs_hal
     start overrideprops
+    start vibratorfeature-hal-service
     setprop sys.usb.config adb
