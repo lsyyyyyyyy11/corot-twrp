@@ -146,9 +146,20 @@ jobs:
         if_false: omni
 
     - name: Sync Device Dependencies
+      # This device tree has no scripts/convert.sh and no *.dependencies file
+      # (verified: `git ls-files | grep -E 'convert.sh|\.dependencies'` is empty,
+      # and the reference tree /tmp/corot_ref is the same). The hard-coded path
+      # therefore exited 127, and GitHub's default `bash -e` aborted the step
+      # before its `repo sync` could run. It was masked by continue-on-error and
+      # is redundant with the "Repo Sync" step above, so guard it the same way as
+      # the optional COMMON_TREE_URL input: only run when the file actually exists.
       run: |
-        bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ github.event.inputs.DEVICE_PATH }}/${{ steps.buildtree.outputs.value }}.dependencies
-        repo sync -j$(nproc --all)
+        if [ -f "${GITHUB_WORKSPACE}/scripts/convert.sh" ]; then
+          bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ github.event.inputs.DEVICE_PATH }}/${{ steps.buildtree.outputs.value }}.dependencies
+          repo sync -j$(nproc --all)
+        else
+          echo "no scripts/convert.sh in the device tree; skipping (nothing to convert)"
+        fi
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
