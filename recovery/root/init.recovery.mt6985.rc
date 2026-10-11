@@ -27,9 +27,15 @@ on early-fs
     mkdir /mnt/vendor/persist/fdsd 0755 system system
     start vold
 
-on late-fs
-    # Mount RW partitions which need run fsck
-    mount_all /first_stage_ramdisk/fstab.mt6985 --late
+# NOTE: there is deliberately no 'on late-fs' here. Recovery init never triggers
+# late-fs (see bootable/recovery/etc/init.rc: 'on late-init' fires early-fs, fs,
+# post-fs, post-fs-data, firmware_mounts_complete, early-boot, boot - no late-fs),
+# so a 'mount_all fstab.mt6985 --late' there could never run. It would also be
+# wrong on purpose: fs_mgr's MOUNT_MODE_LATE pass mounts ONLY entries flagged
+# 'latemount' (system/core/fs_mgr/fs_mgr.cpp:1454), and the only latemount entries
+# in fstab.mt6985 are the two /data lines (:67-68) - /data must stay unmounted in
+# recovery so TWRP can decrypt and mount it itself. Everything else in that fstab
+# is first_stage_mount or is mounted explicitly above.
 
 on post-fs
     start boot-hal-1-2
