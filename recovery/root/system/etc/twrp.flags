@@ -3,7 +3,8 @@
 # specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
 
 #<mnt_point>        <type>    <device>                            <device2>                         <mnt_flags and options>
-/metadata                ext4              /dev/block/by-name/metadata                          flags=display="Metadata [ metadata ]";backup=1
+# /metadata is F2FS on corot.
+/metadata                f2fs              /dev/block/by-name/metadata                          flags=display="Metadata [ metadata ]";backup=1
 /data                        f2fs                /dev/block/by-name/userdata                          flags=display="Userdata [ data ]";fileencryption=aes-256-xts:aes-256-cts:v2+inlinecrypt_optimized,keydirectory=/metadata/vold/metadata_encryption
 /data                        mifs                /dev/block/by-name/userdata                          flags=display="Userdata [ data ]";fileencryption=aes-256-xts:aes-256-cts:v2+inlinecrypt_optimized,keydirectory=/metadata/vold/metadata_encryption
 /cache                     ext4                /dev/block/by-name/rescue                             flags=display="Cache [ rescue ]";wipeingui;wipeduringfactoryreset
@@ -48,6 +49,7 @@
 /audio_dsp                         emmc                      /dev/block/by-name/audio_dsp                      flags=display="Audio DSP Driver [ audio_dsp ]";slotselect;backup=1;flashimg=1
 /connsys_bt                        emmc                      /dev/block/by-name/connsys_bt                    flags=display="CONNSYS Bluetooth [ connsys_bt ]";slotselect;backup=1;flashimg=1
 /connsys_wifi                      emmc                      /dev/block/by-name/connsys_wifi                  flags=display="CONNSYS WiFi [ connsys_wifi ]";slotselect;backup=1;flashimg=1
+/connsys_gnss                     emmc                      /dev/block/by-name/connsys_gnss                flags=display="CONNSYS GNSS [ connsys_gnss ]";slotselect;backup=1;flashimg=1
 /ccu                                   emmc                      /dev/block/by-name/ccu                                flags=display="Camera Control Unit Driver [ ccu ]";slotselect;backup=1;flashimg=1
 /dpm                                  emmc                      /dev/block/by-name/dpm                              flags=display="DRAM Power Management [ dpm ]";slotselect;backup=1;flashimg=1
 /gpueb                               emmc                      /dev/block/by-name/gpueb                           flags=display="GPU Extension Driver [ gpueb ]";slotselect;backup=1;flashimg=1
@@ -68,12 +70,6 @@
 /vcp                                  emmc                      /dev/block/by-name/vcp                                 flags=display="Video Driver [ vcp ]";slotselect;backup=1;flashimg=1
 
 # Factory Partitions
-/backup1                           emmc                      /dev/block/by-name/backup1                          flags=display="BACKUP1 [ backup1 ]";backup=1;flashimg=1
-/backup2                          emmc                      /dev/block/by-name/backup2                          flags=display="BACKUP2 [ backup2 ]";backup=1;flashimg=1
-/backup3                          emmc                      /dev/block/by-name/backup3                          flags=display="BACKUP3 [ backup3 ]";backup=1;flashimg=1
-/backup4                          emmc                      /dev/block/by-name/backup4                          flags=display="BACKUP4 [ backup4 ]";backup=1;flashimg=1
-/backup5                          emmc                      /dev/block/by-name/backup5                          flags=display="BACKUP5 [ backup5 ]";backup=1;flashimg=1
-/backup6                          emmc                      /dev/block/by-name/backup6                          flags=display="BACKUP6 [ backup6 ]";backup=1;flashimg=1
 /boot_para                        emmc                      /dev/block/by-name/boot_para                       flags=display="Boot Parameter [ boot_para ]";backup=1;flashimg=1
 /countrycode                    emmc                      /dev/block/by-name/countrycode                    flags=display="Country Code [ countrycode ]";backup=1;flashimg=1
 /dram_para                       emmc                      /dev/block/by-name/dram_para                       flags=display="DRAM Parameter [ dram_para ]";backup=1;flashimg=1
@@ -85,10 +81,6 @@
 /gsort                               emmc                      /dev/block/by-name/gsort                              flags=display="GSORT [ gsort ]";backup=1;flashimg=1
 /mem                               emmc                      /dev/block/by-name/mem                               flags=display="DRAM Info [ mem ]";backup=1;flashimg=1
 /misc                                emmc                      /dev/block/by-name/misc                                flags=display="Miscellaneous [ misc ]";backup=1;flashimg=1
-/oem_misc1                      emmc                      /dev/block/by-name/oem_misc1                       flags=display="OEM Miscellaneous [ oem_misc1 ]";backup=1;flashimg=1
-/oops                               emmc                      /dev/block/by-name/oops                                flags=display="Xiaomi Crash Log [ oops ]";backup=1;flashimg=1
-/opconfig                         emmc                      /dev/block/by-name/opconfig                          flags=display="Operator Configuration [ opconfig ]";backup=1;flashimg=1
-/opcust                            emmc                      /dev/block/by-name/opcust                             flags=display="Operator Customization [ opcust ]";backup=1;flashimg=1
 /otp                                 emmc                      /dev/block/by-name/otp                                  flags=display="One Time Program [ otp ]";backup=1;flashimg=1
 /para                               emmc                      /dev/block/by-name/para                                 flags=display="Parameter [ para ]";backup=1;flashimg=1
 /sec1                               emmc                      /dev/block/by-name/sec1                                 flags=display="Secure Info [ sec1 ]";backup=1;flashimg=1

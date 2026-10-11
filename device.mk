@@ -29,10 +29,14 @@ AB_OTA_PARTITIONS += \
     audio_dsp \
     boot \
     ccu \
+    connsys_bt \
+    connsys_gnss \
+    connsys_wifi \
     dpm \
     dtbo \
     gpueb \
     gz \
+    init_boot \
     lk \
     logo \
     mcf_ota \
@@ -79,11 +83,15 @@ AB_OTA_POSTINSTALL_CONFIG += \
 
 # Additional Target Libraries
 TARGET_RECOVERY_DEVICE_MODULES += \
+    android.hardware.keymaster@4.1 \
+    android.hardware.vibrator-V1-ndk_platform \
     android.hardware.graphics.common@1.0 \
     libion \
     libxml2
 
 TW_RECOVERY_ADDITIONAL_RELINK_LIBRARY_FILES += \
+    $(TARGET_OUT_SHARED_LIBRARIES)/android.hardware.keymaster@4.1.so \
+    $(TARGET_OUT_SHARED_LIBRARIES)/android.hardware.vibrator-V1-ndk_platform.so \
     $(TARGET_OUT_SHARED_LIBRARIES)/android.hardware.graphics.common@1.0.so \
     $(TARGET_OUT_SHARED_LIBRARIES)/libion.so \
     $(TARGET_OUT_SHARED_LIBRARIES)/libxml2.so
@@ -108,6 +116,18 @@ PRODUCT_PACKAGES += \
     android.hardware.health@2.1-impl \
     android.hardware.health@2.1-service
 
+# Keymaster / Keymint / Keystore2 (TWRP crypto)
+PRODUCT_PACKAGES += \
+    android.hardware.keymaster@4.1
+
+PRODUCT_PACKAGES += \
+    android.hardware.security.keymint \
+    android.hardware.security.secureclock \
+    android.hardware.security.sharedsecret
+
+PRODUCT_PACKAGES += \
+    android.system.keystore2
+
 # Mtk plpath utils
 PRODUCT_PACKAGES += \
     mtk_plpath_utils \
@@ -115,6 +135,10 @@ PRODUCT_PACKAGES += \
 
 # Hidl Service
 PRODUCT_ENFORCE_VINTF_MANIFEST := true
+
+# OTA verification key (MIUI release key)
+PRODUCT_EXTRA_RECOVERY_KEYS += \
+    $(DEVICE_PATH)/security/miui_releasekey
 
 # Soong namespaces
 PRODUCT_SOONG_NAMESPACES += $(DEVICE_PATH)

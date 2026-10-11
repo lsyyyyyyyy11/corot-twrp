@@ -7,6 +7,13 @@ ro.postinstall.fstab.prefix=/system
 # USB MTP
 ro.sys.usb.storage.type=mtp
 
+# Crypto (FBE v2 / metadata encryption)
+ro.crypto.volume.filenames_mode=aes-256-cts
+
+# TEE (MicroTrust / mitee)
+ro.vendor.mtk_tee_gp_support=1
+ro.vendor.mtk_mitee_support=1
+
 # Misc
 ro.vendor.mediatek.platform=MT6985
 
