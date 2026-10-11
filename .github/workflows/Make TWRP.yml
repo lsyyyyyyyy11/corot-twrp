@@ -73,12 +73,14 @@ jobs:
     - name: Prepare the environment
       run: |
         sudo apt update
-        sudo apt -y upgrade
+        # Required build dependencies.
         sudo apt -y install gperf gcc-multilib g++-multilib libc6-dev lib32z1-dev \
-          libncurses5-dev libncurses5 x11proto-core-dev libx11-dev tree libgl1-mesa-dev \
-          libxml2-utils xsltproc bc ccache lib32readline-dev liblz4-tool libsdl1.2-dev \
-          libxml2 lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma \
-          ncftp qemu-user-static libstdc++-dev python3 zip unzip
+          libncurses5-dev libncurses5 libx11-dev tree libgl1-mesa-dev libxml2-utils \
+          xsltproc bc ccache lib32readline-dev liblz4-tool libxml2 lzop pngcrush \
+          schedtool squashfs-tools imagemagick libbz2-dev lzma qemu-user-static \
+          libstdc++-12-dev python3 zip unzip file
+        # Optional/legacy packages: harmless if absent on this runner image.
+        sudo apt -y install x11proto-core-dev libsdl1.2-dev ncftp || true
 
     - name: Install OpenJDK
       uses: actions/setup-java@v3
