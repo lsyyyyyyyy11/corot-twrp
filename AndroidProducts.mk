@@ -16,4 +16,10 @@
 
 PRODUCT_MAKEFILES := $(LOCAL_DIR)/twrp_corot.mk
 
-COMMON_LUNCH_CHOICES := twrp_corot-eng
+# Android 14's lunch requires <product>-<release>-<variant>. The manifest's
+# default revision is android-14.0.0_r67 (24Q2), whose only declared release
+# config is "ap2a" (build/release/release_config_map.mk).
+COMMON_LUNCH_CHOICES := \
+    twrp_corot-ap2a-eng \
+    twrp_corot-ap2a-userdebug \
+    twrp_corot-ap2a-user
