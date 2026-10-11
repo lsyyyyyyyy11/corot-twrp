@@ -10,7 +10,11 @@ on:
       MANIFEST_BRANCH:
         description: 'MANIFEST_BRANCH'
         required: true
-        default: 'twrp-14'
+        # twrp-14.1 (AOSP r67) is required: its manifest ships build/release,
+        # whose release_config_map.mk declares the 'ap2a' release. twrp-14 (r17)
+        # has no build/release project at all, so _all_release_configs is empty
+        # and lunch fails with "No release config found for TARGET_RELEASE".
+        default: 'twrp-14.1'
       DEVICE_TREE_URL:
         description: 'DEVICE_TREE_URL'
         required: true
@@ -123,9 +127,12 @@ jobs:
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Clone common tree
+      # workflow_dispatch passes an unfilled optional input as an empty string,
+      # not null, so '!= null' was always true and this step ran
+      # `git clone ''` on every build. Test for non-empty instead.
       if: |
-        github.event.inputs.COMMON_TREE_URL != null
-        && github.event.inputs.COMMON_PATH != null
+        github.event.inputs.COMMON_TREE_URL != ''
+        && github.event.inputs.COMMON_PATH != ''
       run: |
         git clone ${{ github.event.inputs.COMMON_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.COMMON_PATH }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
