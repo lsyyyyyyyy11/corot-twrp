@@ -13,8 +13,18 @@ on init
 on fs
     install_keyring
 
-# We need vold early for metadata encryption
+# We need vold early for metadata encryption.
+# tee-supplicant also needs /mnt/vendor/persist mounted before it starts: the path
+# is hardcoded in the binary, the stock fstab.mt6985 mounts persist there only under
+# 'on late-fs' (which recovery init never triggers), and tee-supplicant.rc is
+# imported above so its own 'on fs' (which starts tee-supplicant) runs before this
+# file's 'on fs'. Mounting in early-fs guarantees ordering.
 on early-fs
+    mkdir /mnt/vendor/persist 0755 system system
+    mount_all /system/etc/persist.fstab --early
+    restorecon_recursive /mnt/vendor/persist
+    mkdir /mnt/vendor/persist/data 0755 system system
+    mkdir /mnt/vendor/persist/fdsd 0755 system system
     start vold
 
 on late-fs
@@ -25,7 +35,10 @@ on post-fs
     start boot-hal-1-2
     
     # Support A/B feature for EMMC and UFS boot region
-    wait /dev/block/mmcblk0boot0 2
+    # Wait for the UFS boot LUN the symlink below targets (/dev/block/sda), not
+    # for /dev/block/mmcblk0boot0 -- that path is created by the next line, so
+    # waiting on it always burned the full 2s timeout on every boot.
+    wait /dev/block/sda 2
     symlink /dev/block/sda /dev/block/mmcblk0boot0
     symlink /dev/block/sdb /dev/block/mmcblk0boot1
     symlink /dev/block/mmcblk0boot0 /dev/block/platform/bootdevice/by-name/preloader_a

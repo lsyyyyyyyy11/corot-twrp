@@ -116,6 +116,12 @@ for f in ["recovery/root/tee-supplicant.rc", "recovery/root/keymint.service.mite
           "recovery/root/vendor/bin/hw/android.hardware.security.keymint@2.0-service.mitee",
           "recovery/root/vendor/bin/hw/android.hardware.gatekeeper@1.0-service"]:
     check("present: %s" % f, os.path.exists(os.path.join(TREE, f)))
+# The shipped vendor keymint service links android.hardware.security.keymint-V2-ndk.so
+# (readelf DT_NEEDED). Without it in the ramdisk the service dies at exec and FBE
+# decryption cannot unwrap the metadata key.
+check("keymint V2 ndk lib shipped next to its service",
+      os.path.exists(os.path.join(TREE, "recovery/root/vendor/lib64/"
+                                        "android.hardware.security.keymint-V2-ndk.so")))
 ta = os.path.join(TREE, "recovery/root/vendor/mitee/ta")
 check("MicroTrust TAs (>=10)", os.path.isdir(ta) and
       len([x for x in os.listdir(ta) if x.endswith(".ta")]) >= 10,
@@ -124,6 +130,19 @@ rc = rd("recovery/root/init.recovery.mt6985.rc")
 for n in ["import /tee-supplicant.rc", "import /keymint.service.mitee.rc", "start vold",
           "crypto.ready 1", "start vendor.keymint-mitee", "start vendor.gatekeeper-1-0"]:
     check("init rc: %s" % n, n in rc)
+# tee-supplicant hardcodes /mnt/vendor/persist/data for its device keys. Stock
+# fstab.mt6985 mounts persist only under 'on late-fs', which recovery init never
+# fires, so the recovery init rc must mount it itself before tee-supplicant starts.
+check("persist.fstab mounts /mnt/vendor/persist",
+      os.path.exists(os.path.join(TREE, "recovery/root/system/etc/persist.fstab")) and
+      "/mnt/vendor/persist" in rd("recovery/root/system/etc/persist.fstab"))
+check("init rc mounts persist before tee-supplicant start",
+      re.search(r"^on early-fs\b", rc, re.M) is not None and
+      "mount_all /system/etc/persist.fstab --early" in rc)
+# 'haptic' is a module on /vendor_dlkm (not built in), and it is absent from
+# modules.load.recovery, so TWRP's own loader must be enabled and told to load it.
+check("TW_LOAD_VENDOR_MODULES loads haptic.ko",
+      kv(bc, "TW_LOAD_VENDOR_MODULES") is not None and "haptic.ko" in kv(bc, "TW_LOAD_VENDOR_MODULES"))
 
 print("== metadata filesystem ==")
 for f in ["recovery/root/system/etc/recovery.fstab", "recovery/root/system/etc/twrp.flags",
@@ -142,7 +161,11 @@ check("recovery.fstab covers system_dlkm", "/system_dlkm" in rf)
 check("recovery.fstab has no avb= flags", "avb=" not in rf)
 check("recovery.fstab has no doubled commas", ",," not in rf)
 tf = rd("recovery/root/system/etc/twrp.flags")
-check("twrp.flags has mifs /data entry", re.search(r"^/data\s+mifs\b", tf, re.M) is not None)
+# /data on corot is F2FS (verified: /sys/fs/f2fs/dm-43). twrp.flags is a map
+# keyed by mount point, so a second 'mifs' line would override the f2fs one;
+# recovery.fstab keeps mifs only as a fallback after the f2fs line.
+check("twrp.flags has f2fs /data entry", re.search(r"^/data\s+f2fs\b", tf, re.M) is not None)
+check("twrp.flags has no mifs /data override", re.search(r"^/data\s+mifs\b", tf, re.M) is None)
 check("twrp.flags has connsys_gnss", "connsys_gnss" in tf)
 
 print("== partitions ==")
@@ -170,7 +193,10 @@ check("security/miui_releasekey.x509.pem present",
 check("device.mk registers PRODUCT_EXTRA_RECOVERY_KEYS", "PRODUCT_EXTRA_RECOVERY_KEYS" in dev)
 ci = rd(".github/workflows/Make TWRP.yml")
 m = re.search(r"MANIFEST_BRANCH:\n(?:.*\n)*?\s+default: '([^']+)'", ci)
-check("CI manifest branch targets twrp-14", m and m.group(1) == "twrp-14",
+# twrp-14.1 (AOSP r67) is required: it ships build/release with the 'ap2a'
+# release config, so lunch twrp_corot-ap2a-eng resolves. twrp-14 (r17) has no
+# build/release project and lunch fails.
+check("CI manifest branch targets twrp-14.1", m and m.group(1) == "twrp-14.1",
       "default %s" % (m.group(1) if m else "?"))
 
 print()

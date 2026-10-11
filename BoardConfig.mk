@@ -97,10 +97,13 @@ BOARD_MKBOOTIMG_ARGS += --dtb_offset $(BOARD_DTB_OFFSET)
 BOARD_FLASH_BLOCK_SIZE := 262144
 BOARD_VENDOR_BOOTIMAGE_PARTITION_SIZE := 67108864
 
-BOARD_SUPER_PARTITION_SIZE := 9653190656
+# Real super partition is sdc76 = 18874368 sectors = 9663676416 B (verified on
+# this device). The previous 9653190656 was 10 MiB short, which makes TWRP's
+# super/size reporting and any resize math wrong.
+BOARD_SUPER_PARTITION_SIZE := 9663676416
 BOARD_SUPER_PARTITION_GROUPS := main
 BOARD_MAIN_PARTITION_LIST := odm odm_dlkm product system system_ext vendor vendor_dlkm
-BOARD_MAIN_SIZE := 9648996352 # (BOARD_SUPER_PARTITION_SIZE - 4194304) 4MiB
+BOARD_MAIN_SIZE := 9653190656 # (BOARD_SUPER_PARTITION_SIZE - 10485760) 10MiB
 
 BOARD_PARTITION_LIST := $(call to-upper, $(BOARD_MAIN_PARTITION_LIST))
 $(foreach p, $(BOARD_PARTITION_LIST), $(eval BOARD_$(p)IMAGE_FILE_SYSTEM_TYPE := erofs))
@@ -136,6 +139,14 @@ TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
 
 # Treble
 BOARD_VNDK_VERSION := current
+
+# TeamWin's android-14.1 bootable/recovery still links the pre-Android-13 AIDL
+# module names (android.security.apc-ndk_platform, android.system.keystore2-V1-ndk_platform,
+# android.security.authorization-ndk_platform, android.security.maintenance-ndk_platform)
+# from bootable/recovery/{Android.mk,libtar/Android.mk} whenever TW_INCLUDE_CRYPTO is on.
+# AOSP 13+ only emits those variants when this flag is set; without it the build dies with
+# "android.security.apc-ndk_platform.so.toc missing and no known rule to make it".
+NEED_AIDL_NDK_PLATFORM_BACKEND := true
 
 # Vendor_boot recovery ramdisk
 BOARD_USES_RECOVERY_AS_BOOT := 
@@ -192,13 +203,22 @@ TW_EXTRA_LANGUAGES := true
 TW_DEFAULT_LANGUAGE := zh_CN
 TW_INPUT_BLACKLIST := "hbtp_vm"
 TW_DEVICE_VERSION := Redmi K60 Ultra | mominqimiang
-TW_CUSTOM_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone80/temp"
+# thermal_zone80 is "cp_master" (MT6375 charge-pump rail) and reads a constant 0
+# on this device, so TWRP fell back to a hardcoded 30 C. thermal_zone0 is "soc_max",
+# the live SoC temperature (verified: 41-44 C while idle-charging).
+TW_CUSTOM_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone0/temp"
 TARGET_USE_CUSTOM_LUN_FILE_PATH := /config/usb_gadget/g1/functions/mass_storage.usb0/lun.%d/file
 TW_BATTERY_SYSFS_WAIT_SECONDS := 6
 TW_BACKUP_EXCLUSIONS := /data/fonts
 TW_USE_SERIALNO_PROPERTY_FOR_DEVICE_ID := true
 
-# Haptics (awinic LRA, AIDL vibratorfeature; driver is built in)
+# Haptics (awinic LRA, AIDL vibratorfeature).
+# The driver is NOT built in: the device loads 'haptic' as a module from
+# /vendor_dlkm/lib/modules/haptic.ko (verified: /proc/modules lists it, and the
+# module lives at /kw/repo/artifacts/device-modules/vendor_dlkm/haptic.ko).
+# TWRP must load it itself, otherwise the vibratorfeature HAL has no device and
+# every vibration is a silent no-op. This also enables kernel_module_loader.cpp.
+TW_LOAD_VENDOR_MODULES := "haptic.ko"
 TW_SUPPORT_INPUT_AIDL_HAPTICS := true
 TW_SUPPORT_INPUT_AIDL_HAPTICS_FQNAME := "IVibrator/vibratorfeature"
 TW_SUPPORT_INPUT_AIDL_HAPTICS_FIX_OFF := true
