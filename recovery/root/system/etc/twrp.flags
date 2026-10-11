@@ -55,7 +55,9 @@
 /gz                                     emmc                      /dev/block/by-name/gz                                  flags=display="MediaTek GenieZone [ gz ]";slotselect;backup=1;flashimg=1
 /lk                                      emmc                      /dev/block/by-name/lk                                   flags=display="Little Kernel Bootloader [ lk ]";slotselect;backup=1;flashimg=1
 /logo                                  emmc                      /dev/block/by-name/logo                              flags=display="Splashcreen Bootlogo [ logo ]";slotselect;backup=1;flashimg=1
-/mcf_ota                              ext4                       /dev/block/by-name/mcf_ota                         flags=display="Modem Configuration [ mcf_ota ]";slotselect
+# mcf_ota is a raw (emmc) partition, not ext4 -- stock recovery.fstab declares it
+# as "emmc defaults". Mounting it as ext4 fails.
+/mcf_ota                              emmc                       /dev/block/by-name/mcf_ota                         flags=display="Modem Configuration [ mcf_ota ]";slotselect
 /mcf_ota_image                 emmc                      /dev/block/by-name/mcf_ota                         flags=display="Modem Configuration [ mcf_ota ]";slotselect;backup=1;flashimg=1
 /mcupm                             emmc                      /dev/block/by-name/mcupm                          flags=display="MCU Power Management [ mcupm ]";slotselect;backup=1;flashimg=1
 /md1img                             emmc                      /dev/block/by-name/md1img                         flags=display="Modem Baseband Driver [ md1img ]";slotselect;backup=1;flashimg=1
