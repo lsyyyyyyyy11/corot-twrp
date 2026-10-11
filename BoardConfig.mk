@@ -41,7 +41,8 @@ TARGET_OTA_ASSERT_DEVICE := corot
 # Bootloader
 TARGET_BOOTLOADER_BOARD_NAME := mt6985
 TARGET_NO_BOOTLOADER := true
-TARGET_USES_UEFI := true
+# TARGET_USES_UEFI was removed: it has no consumer anywhere in AOSP or TWRP,
+# and the device boots via MediaTek LK (cmdline bootopt=64S3,32N2,64N2), not UEFI.
 
 # Build Hack
 BUILD_BROKEN_DUP_RULES := true

@@ -18,4 +18,6 @@ ro.vendor.mtk_mitee_support=1
 ro.vendor.mediatek.platform=MT6985
 
 # Timezone
-persist.sys.timezone="Asia/Shanghai"
+# Quotes here are literal: a .prop file takes the value verbatim, so the
+# previous value was the string '"Asia/Shanghai"' including quote characters.
+persist.sys.timezone=Asia/Shanghai
