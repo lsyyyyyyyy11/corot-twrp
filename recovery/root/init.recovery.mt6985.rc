@@ -103,26 +103,13 @@ on property:hwservicemanager.ready=true
     start vendor.keymint-mitee
     start vendor.gatekeeper-1-0
 
-on property:ro.crypto.state=unsupported
-    stop vendor.keymint-mitee
-    stop vendor.gatekeeper-1-0
-    stop tee-supplicant
-    stop miteelog
-    
-on property:ro.crypto.state=unencrypted
-    stop vendor.keymint-mitee
-    stop vendor.gatekeeper-1-0
-    stop tee-supplicant
-    stop miteelog
-
+# TEE teardown once decryption is done. The earlier blocks on
+# ro.crypto.state=unsupported / =unencrypted and on crypto.ready=0 were removed:
+# nothing in this tree ever writes those values (TWRP's Set_Crypto_State writes
+# only ro.crypto.state=encrypted, and crypto.ready is only ever set to 1), so
+# they could never fire. twrp.decrypt.done is set by TWRP after a successful
+# decrypt and is the only teardown that actually happens.
 on property:twrp.decrypt.done=true
-    stop vendor.keymint-mitee
-    stop vendor.gatekeeper-1-0
-    stop tee-supplicant
-    stop miteelog
-    
-
-on property:crypto.ready=0
     stop vendor.keymint-mitee
     stop vendor.gatekeeper-1-0
     stop tee-supplicant
