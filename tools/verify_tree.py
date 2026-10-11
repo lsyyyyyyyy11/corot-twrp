@@ -174,6 +174,11 @@ if os.path.exists(REAL_PARTS):
     real |= set(re.sub(r"_[ab]$", "", n) for n in real)
 else:
     real = set()
+# init_boot_a/b are real 8 MiB partitions (sdc38/sdc69) and part of the GKI boot
+# chain; without a twrp.flags entry a backup silently omits it and a restore
+# leaves the target's init_boot stale.
+check("twrp.flags has init_boot entry",
+      re.search(r"^/init_boot\s", tf, re.M) is not None)
 bad = []
 for line in tf.splitlines():
     if line.startswith("#") or not line.strip():
