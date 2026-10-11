@@ -154,8 +154,10 @@ TARGET_RECOVERY_DEVICE_MODULES := libinit_corot
 # TWRP Configurations
 TW_FRAMERATE := 60
 TW_STATUS_ICONS_ALIGN := center
-TW_Y_OFFSET := 87
-TW_H_OFFSET := -87
+# TW_Y_OFFSET/TW_H_OFFSET are deliberately not set: the portrait_hdpi theme is
+# 1080x1920, and on this 1220x2712 panel a -87 height offset scales the layout
+# to (2712-87)/1920 while a +87 y offset pushes every element down, clipping the
+# bottom of the theme. They are leftovers from a 1080x2400-class device.
 TW_THEME := portrait_hdpi
 TW_BRIGHTNESS_PATH := "/sys/class/leds/lcd-backlight/brightness"
 # Measured: /sys/class/leds/lcd-backlight/max_brightness == 16383
