@@ -149,7 +149,11 @@ BOARD_AVB_ENABLE := true
 
 # Init
 TARGET_INIT_VENDOR_LIB := libinit_corot
-TARGET_RECOVERY_DEVICE_MODULES := libinit_corot
+# Must be += : device.mk appends keymaster@4.1, graphics.common@1.0, libion and
+# libxml2 to this list, and product_config.mk (which includes device.mk) is
+# evaluated before board_config.mk (which includes this file). A plain := here
+# silently discarded all of them.
+TARGET_RECOVERY_DEVICE_MODULES += libinit_corot
 
 # TWRP Configurations
 TW_FRAMERATE := 60
