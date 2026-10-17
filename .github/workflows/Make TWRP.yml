@@ -163,6 +163,26 @@ jobs:
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
+    - name: Apply TWRP 14.1 fixes (libtar fscrypt policy)
+      # TeamWin's android-14.1 bootable/recovery/libtar was written against the
+      # OrangeFox fscrypt_policy union API, but TeamWin's system/vold only
+      # declares the v1/v2 struct helpers, so libtar fails to compile as soon as
+      # TW_INCLUDE_CRYPTO_FBE is on. The patch restores the missing type and
+      # helpers; the copy fallback keeps this step working if upstream drifts.
+      run: |
+        PATCH="$GITHUB_WORKSPACE/twrp-patches/0001-libtar-fscrypt-policy.patch"
+        LIBS="$GITHUB_WORKSPACE/twrp-patches/libtar"
+        if git -C bootable/recovery apply --3way "$PATCH"; then
+          echo "libtar fscrypt fix applied with git apply"
+        else
+          echo "git apply failed, falling back to direct file copy"
+          cp "$LIBS/fscrypt_policy.h" "$LIBS/fscrypt_policy_helpers.c" bootable/recovery/libtar/
+          sed -i 's/^LOCAL_SRC_FILES := append.c/LOCAL_SRC_FILES := fscrypt_policy_helpers.c append.c/' bootable/recovery/libtar/Android.mk
+        fi
+        grep -n 'fscrypt_policy_helpers' bootable/recovery/libtar/Android.mk
+        ls -l bootable/recovery/libtar/fscrypt_policy.h bootable/recovery/libtar/fscrypt_policy_helpers.c
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
       with:
@@ -172,7 +192,14 @@ jobs:
       run: |
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-ap2a-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
+        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-ap2a-eng
+        # Build the patched libtar modules first: they are the twrp-14.1 FBE
+        # blocker, so failing here costs minutes instead of a whole build.
+        echo "::group::libtar compile check"
+        make libtar libtar_static -j$(nproc --all)
+        echo "::endgroup::"
+        # Fresh runner, so no 'make clean' is needed.
+        make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Upload to Release

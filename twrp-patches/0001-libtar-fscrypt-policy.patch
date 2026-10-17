@@ -1,0 +1,197 @@
+diff --git a/libtar/Android.mk b/libtar/Android.mk
+index c3bb691..f980715 100755
+--- a/libtar/Android.mk
++++ b/libtar/Android.mk
+@@ -5,7 +5,7 @@ include $(CLEAR_VARS)
+ 
+ LOCAL_MODULE := libtar
+ LOCAL_MODULE_TAGS := optional
+-LOCAL_SRC_FILES := append.c block.c decode.c encode.c extract.c handle.c output.c util.c wrapper.c basename.c strmode.c libtar_hash.c libtar_list.c dirname.c android_utils.c
++LOCAL_SRC_FILES := fscrypt_policy_helpers.c append.c block.c decode.c encode.c extract.c handle.c output.c util.c wrapper.c basename.c strmode.c libtar_hash.c libtar_list.c dirname.c android_utils.c
+ LOCAL_C_INCLUDES += $(LOCAL_PATH) \
+                     external/zlib
+ LOCAL_SHARED_LIBRARIES += libz libc
+@@ -75,7 +75,7 @@ include $(CLEAR_VARS)
+ 
+ LOCAL_MODULE := libtar_static
+ LOCAL_MODULE_TAGS := optional
+-LOCAL_SRC_FILES := append.c block.c decode.c encode.c extract.c handle.c output.c util.c wrapper.c basename.c strmode.c libtar_hash.c libtar_list.c dirname.c android_utils.c
++LOCAL_SRC_FILES := fscrypt_policy_helpers.c append.c block.c decode.c encode.c extract.c handle.c output.c util.c wrapper.c basename.c strmode.c libtar_hash.c libtar_list.c dirname.c android_utils.c
+ LOCAL_C_INCLUDES += $(LOCAL_PATH) \
+                     external/zlib
+ LOCAL_STATIC_LIBRARIES += libz libc
+diff --git a/libtar/fscrypt_policy.h b/libtar/fscrypt_policy.h
+new file mode 100644
+index 0000000..d616041
+--- /dev/null
++++ b/libtar/fscrypt_policy.h
+@@ -0,0 +1,66 @@
++/*
++ * Local fscrypt_policy.h for TWRP's libtar.
++ *
++ * TeamWin's android-14.1 bootable/recovery/libtar was written against the
++ * OrangeFox-style fscrypt API: a fscrypt_policy union plus the helpers
++ * get_policy_size(), get_policy_descriptor(), get_policy(),
++ * fscrypt_policy_size() and get_policy_content().  TeamWin's
++ * system/vold/fscrypt_policy.h only declares the v1/v2 helpers, and
++ * <linux/fs.h> keeps the legacy "fscrypt_policy" alias to
++ * "fscrypt_policy_v1" (which is not a type name), so the libtar FBE code
++ * stops compiling as soon as TW_INCLUDE_CRYPTO_FBE is enabled.
++ *
++ * This header restores the missing type and declarations.  The five
++ * OrangeFox helpers live in fscrypt_policy_helpers.c; the functions that
++ * libvold already provides (fscrypt_policy_get_struct/set_struct,
++ * lookup_ref_key, lookup_ref_tar, bytes_to_hex) are declared here with the
++ * libtar-side types and resolve to libvold at link time.
++ *
++ * Kept intentionally small: only what bootable/recovery/libtar/ uses.
++ */
++#ifndef TWRP_LIBTAR_FSCRYPT_POLICY_H
++#define TWRP_LIBTAR_FSCRYPT_POLICY_H
++
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++
++/* Pulls in struct fscrypt_policy_v1/v2 and the FSCRYPT_* constants. */
++#include <linux/fs.h>
++
++/* linux/fscrypt.h keeps a legacy alias to the v1 struct; libtar needs the
++ * version-dispatching union below instead. */
++#undef fscrypt_policy
++
++typedef union fscrypt_policy {
++    uint8_t version;
++    struct fscrypt_policy_v1 v1;
++    struct fscrypt_policy_v2 v2;
++} fscrypt_policy;
++
++#define FS_KEY_DESCRIPTOR_SIZE_HEX (2 * FSCRYPT_KEY_DESCRIPTOR_SIZE + 1)
++#define FSCRYPT_KEY_IDENTIFIER_SIZE_HEX ((2 * FSCRYPT_KEY_IDENTIFIER_SIZE) + 1)
++
++/* Policy payload prefixes.  append.c concatenates the numeric policy
++ * version with these: "%u" + "CE" -> "2CE" for a v2 user CE policy. */
++#define USER_CE_FSCRYPT_POLICY "CE"
++#define USER_DE_FSCRYPT_POLICY "DE"
++#define SYSTEM_DE_FSCRYPT_POLICY "DK"
++
++/* Implemented by system/vold (fscrypt_policy.cpp / Decrypt.cpp) with C
++ * linkage.  Declared with the libtar types because those translation units
++ * pass fscrypt_policy pointers straight through. */
++bool fscrypt_policy_get_struct(const char* directory, fscrypt_policy* fep);
++bool fscrypt_policy_set_struct(const char* directory, const fscrypt_policy* fep);
++bool lookup_ref_key(fscrypt_policy* fep, uint8_t* policy_type);
++bool lookup_ref_tar(fscrypt_policy* fep, uint8_t* policy);
++void bytes_to_hex(const uint8_t* bytes, size_t num_bytes, char* hex);
++
++/* Provided by fscrypt_policy_helpers.c. */
++uint8_t* get_policy_descriptor(fscrypt_policy* fep);
++void* get_policy(const fscrypt_policy* fep);
++uint8_t get_policy_size(fscrypt_policy* fep, bool hex);
++int fscrypt_policy_size(const fscrypt_policy* fep);
++void get_policy_content(fscrypt_policy* fep, char* content);
++
++#endif /* TWRP_LIBTAR_FSCRYPT_POLICY_H */
+diff --git a/libtar/fscrypt_policy_helpers.c b/libtar/fscrypt_policy_helpers.c
+new file mode 100644
+index 0000000..be6baae
+--- /dev/null
++++ b/libtar/fscrypt_policy_helpers.c
+@@ -0,0 +1,97 @@
++/*
++ * fscrypt_policy_helpers.c
++ *
++ * Completes the OrangeFox-style fscrypt API that TeamWin's
++ * android-14.1 bootable/recovery/libtar expects but that TeamWin's
++ * system/vold/fscrypt_policy.h never provided (it only has the v1/v2
++ * struct helpers).  The logic matches the OrangeFox implementation so
++ * tar backups of FBE directories keep the same on-disk policy layout.
++ *
++ * Only the helpers that libvold does NOT provide live here.  The
++ * functions libvold already defines (fscrypt_policy_get_struct/set_struct,
++ * lookup_ref_key, lookup_ref_tar, bytes_to_hex) must not be duplicated
++ * or the static link against libvold fails with multiple definitions.
++ */
++#include "fscrypt_policy.h"
++
++#include <stdio.h>
++
++uint8_t* get_policy_descriptor(fscrypt_policy* fep) {
++    if (fep == NULL) {
++        return NULL;
++    }
++    switch (fep->version) {
++        case FSCRYPT_POLICY_V1:
++            return fep->v1.master_key_descriptor;
++        case FSCRYPT_POLICY_V2:
++            return fep->v2.master_key_identifier;
++        default:
++            return NULL;
++    }
++}
++
++uint8_t get_policy_size(fscrypt_policy* fep, bool hex) {
++    if (fep == NULL) {
++        return 0;
++    }
++    switch (fep->version) {
++        case FSCRYPT_POLICY_V1:
++            return (uint8_t)(hex ? FS_KEY_DESCRIPTOR_SIZE_HEX : FSCRYPT_KEY_DESCRIPTOR_SIZE);
++        case FSCRYPT_POLICY_V2:
++            return (uint8_t)(hex ? FSCRYPT_KEY_IDENTIFIER_SIZE_HEX : FSCRYPT_KEY_IDENTIFIER_SIZE);
++        default:
++            return 0;
++    }
++}
++
++void* get_policy(const fscrypt_policy* fep) {
++    if (fep == NULL) {
++        return NULL;
++    }
++    switch (fep->version) {
++        case FSCRYPT_POLICY_V1:
++            return (void*)&fep->v1;
++        case FSCRYPT_POLICY_V2:
++            return (void*)&fep->v2;
++        default:
++            return NULL;
++    }
++}
++
++int fscrypt_policy_size(const fscrypt_policy* fep) {
++    if (fep == NULL) {
++        return 0;
++    }
++    switch (fep->version) {
++        case FSCRYPT_POLICY_V1:
++            return (int)sizeof(fep->v1);
++        case FSCRYPT_POLICY_V2:
++            return (int)sizeof(fep->v2);
++        default:
++            return 0;
++    }
++}
++
++/* Debug-only helper: formats the policy as text.  Same behaviour as the
++ * OrangeFox implementation (block.c only calls it under #ifdef DEBUG). */
++void get_policy_content(fscrypt_policy* fep, char* content) {
++    if (fep == NULL || content == NULL) {
++        return;
++    }
++    switch (fep->version) {
++        case FSCRYPT_POLICY_V1:
++            sprintf(content, "%i %i %i %i %s", (int)fep->v1.version,
++                    (int)fep->v1.contents_encryption_mode,
++                    (int)fep->v1.filenames_encryption_mode, (int)fep->v1.flags,
++                    (char*)fep->v1.master_key_descriptor);
++            break;
++        case FSCRYPT_POLICY_V2:
++            sprintf(content, "%i %i %i %i %s", (int)fep->v2.version,
++                    (int)fep->v2.contents_encryption_mode,
++                    (int)fep->v2.filenames_encryption_mode, (int)fep->v2.flags,
++                    (char*)fep->v2.master_key_identifier);
++            break;
++        default:
++            break;
++    }
++}
