@@ -172,6 +172,7 @@ jobs:
       #   0003  8744  partition/partitionmanager: remove deprecated FDE calls
       #   0004  8745  partition: drop FBE->FDE fallback that cannot compile
       #   0005  8739  prebuilt: add missing task_profiles.json dependency
+      #   0006  local: ship keymint-V3-ndk.so (libkeymint_support DT_NEEDED)
       # They are ordered because 0002/0004 expect the files 0001/0003 produce.
       run: |
         for PATCH in "$GITHUB_WORKSPACE"/twrp-patches/*.patch; do
