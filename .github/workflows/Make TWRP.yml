@@ -179,7 +179,9 @@ jobs:
       # GITHUB_WORKSPACE checkout of the triggering commit) so the patch set and
       # the source being built always come from the same device-tree revision.
       run: |
-        DT="${{ github.event.inputs.DEVICE_PATH }}"
+        # Absolute path: git -C bootable/recovery resolves relative paths
+        # against bootable/recovery, not against this working-directory.
+        DT="$(pwd)/${{ github.event.inputs.DEVICE_PATH }}"
         git -C "$DT" log -1 --oneline
         for PATCH in "$DT"/twrp-patches/*.patch; do
           echo "::group::apply $(basename "$PATCH")"
