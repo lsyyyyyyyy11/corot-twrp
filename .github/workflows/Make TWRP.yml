@@ -173,9 +173,15 @@ jobs:
       #   0004  8745  partition: drop FBE->FDE fallback that cannot compile
       #   0005  8739  prebuilt: add missing task_profiles.json dependency
       #   0006  local: ship keymint-V3-ndk.so (libkeymint_support DT_NEEDED)
-      # They are ordered because 0002/0004 expect the files 0001/0003 produce.
+      #   0007  local: fix 8745's heap overwrite / th_read/write semantics
+      # They are ordered because 0002/0004/0007 expect the files 0001/0003 produce.
+      # Patches are taken from the freshly cloned device tree (not from the
+      # GITHUB_WORKSPACE checkout of the triggering commit) so the patch set and
+      # the source being built always come from the same device-tree revision.
       run: |
-        for PATCH in "$GITHUB_WORKSPACE"/twrp-patches/*.patch; do
+        DT="${{ github.event.inputs.DEVICE_PATH }}"
+        git -C "$DT" log -1 --oneline
+        for PATCH in "$DT"/twrp-patches/*.patch; do
           echo "::group::apply $(basename "$PATCH")"
           git -C bootable/recovery apply --verbose "$PATCH"
           echo "::endgroup::"
