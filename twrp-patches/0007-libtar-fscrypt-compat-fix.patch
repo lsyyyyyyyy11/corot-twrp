@@ -1,0 +1,53 @@
+--- a/libtar/fscrypt_policy_compat.h	2026-10-17 14:01:07.813714334 +0000
++++ b/libtar/fscrypt_policy_compat.h	2026-10-17 13:57:08.093714320 +0000
+@@ -73,7 +73,10 @@
+  * if hex is true (2 hex chars per byte, plus 1 for the terminator).
+  */
+ static inline size_t get_policy_size(libtar_fscrypt_policy_t *fep, bool hex) {
+-	size_t raw_size = sizeof(*fep);
++	/* Descriptor/identifier length, NOT sizeof(*fep): append.c and
++	 * extract.c use this to size the "2CE0" policy-type buffer and the
++	 * memcpy into the descriptor field. */
++	size_t raw_size = sizeof(fep->LIBTAR_FSCRYPT_KEY_FIELD);
+ 	if (hex)
+ 		return (raw_size * 2) + 1;
+ 	return raw_size;
+@@ -81,7 +84,8 @@
+ 
+ /* block.c's single-argument alias for get_policy_size(fep, false). */
+ static inline size_t fscrypt_policy_size(libtar_fscrypt_policy_t *fep) {
+-	return get_policy_size(fep, false);
++	/* Whole policy struct, as stored in the tar extended header. */
++	return sizeof(*fep);
+ }
+ 
+ /*
+--- a/libtar/block.c	2026-10-17 14:01:07.813714334 +0000
++++ b/libtar/block.c	2026-10-17 13:57:08.093714320 +0000
+@@ -362,7 +362,7 @@
+ 				start += FSCRYPT_TAG_LEN;
+ 				if (*start == '0') {
+ 					start++;
+-					memcpy(get_policy_descriptor(t->th_buf.fep), start, get_policy_size(t->th_buf.fep, false));
++					memcpy(get_policy(t->th_buf.fep), start, fscrypt_policy_size(t->th_buf.fep));
+ #ifdef DEBUG
+ 					uint8_t version;
+ 					char content[50];
+@@ -581,7 +581,7 @@
+ 		/* setup size - EXT header has format "*size of this whole tag as ascii numbers* *space* *version code* *content* *newline* */
+ 		//                                                       size   newline
+ 		uint8_t size, *descriptor;
+-		size = get_policy_size(t->th_buf.fep, false);
++		size = fscrypt_policy_size(t->th_buf.fep);
+ 		descriptor = get_policy_descriptor(t->th_buf.fep);
+ #ifdef DEBUG
+ 		LOG("th_write(): using fscrypt_policy %s\n", descriptor);
+@@ -601,7 +601,7 @@
+ 			total_sz += sz;
+ 
+ 		snprintf(ptr, T_BLOCKSIZE, "%d "FSCRYPT_TAG"0", (int)sz);
+-		memcpy(ptr + sz - size - 1, get_policy_descriptor(t->th_buf.fep), size);
++		memcpy(ptr + sz - size - 1, get_policy(t->th_buf.fep), size);
+ 		char *nlptr = ptr + sz - 1;
+ 		*nlptr = '\n';
+ 		ptr += sz;
