@@ -1,0 +1,14 @@
+diff --git a/prebuilt/Android.mk b/prebuilt/Android.mk
+index f3b7160..fa83e52 100755
+--- a/prebuilt/Android.mk
++++ b/prebuilt/Android.mk
+@@ -473,7 +473,8 @@
+     plat_hardware_contexts \
+     vndservice_contexts \
+     plat_keystore2_key_contexts \
+-    vendor_hwservice_contexts
++    vendor_hwservice_contexts \
++    task_profiles.json
+ 
+ include $(BUILD_PHONY_PACKAGE)
+ 

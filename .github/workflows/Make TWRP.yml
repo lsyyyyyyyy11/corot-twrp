@@ -163,24 +163,24 @@ jobs:
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
-    - name: Apply TWRP 14.1 fixes (libtar fscrypt policy)
-      # TeamWin's android-14.1 bootable/recovery/libtar was written against the
-      # OrangeFox fscrypt_policy union API, but TeamWin's system/vold only
-      # declares the v1/v2 struct helpers, so libtar fails to compile as soon as
-      # TW_INCLUDE_CRYPTO_FBE is on. The patch restores the missing type and
-      # helpers; the copy fallback keeps this step working if upstream drifts.
+    - name: Apply TWRP 14.1 fixes (upstream Gerrit patches)
+      # TeamWin's android-14.1 branch is missing four fixes that newer TWRP
+      # trees already have (all posted on gerrit.twrp.me, branch android-14.1,
+      # by the same maintainer and tested on a real SM7450 build):
+      #   0001  8742  libtar: stale -ndk_platform AIDL module names -> -ndk
+      #   0002  8745  libtar: fscrypt policy API drift + libsysutils link dep
+      #   0003  8744  partition/partitionmanager: remove deprecated FDE calls
+      #   0004  8745  partition: drop FBE->FDE fallback that cannot compile
+      #   0005  8739  prebuilt: add missing task_profiles.json dependency
+      # They are ordered because 0002/0004 expect the files 0001/0003 produce.
       run: |
-        PATCH="$GITHUB_WORKSPACE/twrp-patches/0001-libtar-fscrypt-policy.patch"
-        LIBS="$GITHUB_WORKSPACE/twrp-patches/libtar"
-        if git -C bootable/recovery apply --3way "$PATCH"; then
-          echo "libtar fscrypt fix applied with git apply"
-        else
-          echo "git apply failed, falling back to direct file copy"
-          cp "$LIBS/fscrypt_policy.h" "$LIBS/fscrypt_policy_helpers.c" bootable/recovery/libtar/
-          sed -i 's/^LOCAL_SRC_FILES := append.c/LOCAL_SRC_FILES := fscrypt_policy_helpers.c append.c/' bootable/recovery/libtar/Android.mk
-        fi
-        grep -n 'fscrypt_policy_helpers' bootable/recovery/libtar/Android.mk
-        ls -l bootable/recovery/libtar/fscrypt_policy.h bootable/recovery/libtar/fscrypt_policy_helpers.c
+        for PATCH in "$GITHUB_WORKSPACE"/twrp-patches/*.patch; do
+          echo "::group::apply $(basename "$PATCH")"
+          git -C bootable/recovery apply --verbose "$PATCH"
+          echo "::endgroup::"
+        done
+        echo "patched files:"
+        git -C bootable/recovery status --short
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Set Swap Space

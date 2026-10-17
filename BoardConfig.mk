@@ -140,13 +140,10 @@ TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
 # Treble
 BOARD_VNDK_VERSION := current
 
-# TeamWin's android-14.1 bootable/recovery still links the pre-Android-13 AIDL
-# module names (android.security.apc-ndk_platform, android.system.keystore2-V1-ndk_platform,
-# android.security.authorization-ndk_platform, android.security.maintenance-ndk_platform)
-# from bootable/recovery/{Android.mk,libtar/Android.mk} whenever TW_INCLUDE_CRYPTO is on.
-# AOSP 13+ only emits those variants when this flag is set; without it the build dies with
-# "android.security.apc-ndk_platform.so.toc missing and no known rule to make it".
-NEED_AIDL_NDK_PLATFORM_BACKEND := true
+# TeamWin's android-14.1 bootable/recovery still referenced the pre-Android-13
+# AIDL module names (-ndk_platform) for keystore2/apc; twrp-patches/0001
+# updates them to the current -ndk names, so the
+# NEED_AIDL_NDK_PLATFORM_BACKEND workaround is not needed any more.
 
 # Vendor_boot recovery ramdisk
 BOARD_USES_RECOVERY_AS_BOOT := 
