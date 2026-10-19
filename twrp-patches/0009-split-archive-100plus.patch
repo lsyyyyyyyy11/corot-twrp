@@ -1,0 +1,90 @@
+From 9535f4f276f4f7d01083212d27f8535900191e38 Mon Sep 17 00:00:00 2001
+From: lsyyyyyyy <lsyyyyyyy@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 22:14:43 +0800
+Subject: [PATCH] twrpTar: support more than 99 split archives in
+ backup/restore (fixes #417)
+
+twrpTar hard-coded a 99-volume cap for split archives and twrpDigestDriver
+enumerated volumes with %03i while loading only up to 1000, so backups
+larger than 99 volumes failed to create or verify.
+
+- raise the volume cap from 99 to 9999 (tarList/extractMulti/get_size)
+- name volumes with %s0%02i (000..9999) consistently in twrpDigestDriver
+- raise the digest enumeration loop bound to 10000
+
+Verified on a Redmi K60 Ultra (corot, Android 16): 260GB-class /data
+backup now splits and verifies past the 99-volume boundary.
+---
+ twrpDigestDriver.cpp | 10 +++++-----
+ twrpTar.cpp          |  6 +++---
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/twrpDigestDriver.cpp b/twrpDigestDriver.cpp
+index 82fa3c2..cba08a3 100755
+--- a/twrpDigestDriver.cpp
++++ b/twrpDigestDriver.cpp
+@@ -110,8 +110,8 @@ bool twrpDigestDriver::Check_Digest(string Full_Filename) {
+ 	if (!TWFunc::Path_Exists(Full_Filename)) {
+ 		// This is a split archive, we presume
+ 		memset(split_filename, 0, sizeof(split_filename));
+-		while (index < 1000) {
+-			sprintf(split_filename, "%s%03i", Full_Filename.c_str(), index);
++		while (index < 10000) {
++			sprintf(split_filename, "%s0%02i", Full_Filename.c_str(), index);
+ 			if (!TWFunc::Path_Exists(split_filename))
+ 				break;
+ 				LOGINFO("split_filename: %s\n", split_filename);
+@@ -193,8 +193,8 @@ bool twrpDigestDriver::Make_Digest(string Full_Filename) {
+ 	} else {
+ 		char filename[512];
+ 		int index = 0;
+-		sprintf(filename, "%s%03i", Full_Filename.c_str(), index);
+-		while (index < 1000) {
++		sprintf(filename, "%s0%02i", Full_Filename.c_str(), index);
++		while (index < 10000) {
+ 			string digest_src(filename);
+ 			if (TWFunc::Path_Exists(filename)) {
+ 				if (!Write_Digest(filename))
+@@ -203,7 +203,7 @@ bool twrpDigestDriver::Make_Digest(string Full_Filename) {
+ 				else
+ 					break;
+ 				index++;
+-				sprintf(filename, "%s%03i", Full_Filename.c_str(), index);
++				sprintf(filename, "%s0%02i", Full_Filename.c_str(), index);
+ 			}
+ 			if (index == 0) {
+ 				LOGERR("Backup file: '%s' not found!\n", filename);
+diff --git a/twrpTar.cpp b/twrpTar.cpp
+index 71a5b15..abd060c 100755
+--- a/twrpTar.cpp
++++ b/twrpTar.cpp
+@@ -812,7 +812,7 @@ int twrpTar::tarList(std::vector<TarListStruct> *TarList, unsigned thread_id) {
+ 					}
+ 					archive_count++;
+ 					gui_msg(Msg("split_thread=Splitting thread ID {1} into archive {2}")(thread_id)(archive_count + 1));
+-					if (archive_count > 99) {
++					if (archive_count > 9999) {
+ 						LOGINFO("Too many archives for thread %i\n", thread_id);
+ 						gui_err("backup_error=Error creating backup.");
+ 						return -4;
+@@ -871,7 +871,7 @@ void* twrpTar::extractMulti(void *cookie) {
+ 			return (void*)-2;
+ 		}
+ 		archive_count++;
+-		if (archive_count > 99)
++		if (archive_count > 9999)
+ 			break;
+ 		sprintf(actual_filename, temp.c_str(), threadTar->thread_id, archive_count);
+ 	}
+@@ -1446,7 +1446,7 @@ unsigned long long twrpTar::get_size() {
+ 				while (TWFunc::Path_Exists(actual_filename)) {
+ 					total_restore_size += uncompressedSize(actual_filename);
+ 					archive_count++;
+-					if (archive_count > 99)
++					if (archive_count > 9999)
+ 						break;
+ 					sprintf(actual_filename, temp.c_str(), i, archive_count);
+ 				}
+-- 
+2.43.0
+
