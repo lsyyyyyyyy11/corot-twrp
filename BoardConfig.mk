@@ -199,6 +199,9 @@ TW_INCLUDE_FUSE_EXFAT := true
 TW_EXTRA_LANGUAGES := true
 TW_DEFAULT_LANGUAGE := zh_CN
 TW_INPUT_BLACKLIST := "hbtp_vm"
+# Vibrate-on-touch (tw_button_vibrate) deadlocks the GUI thread on this MTK
+# recovery build: touch events stop after the first press. Disable haptics.
+TW_NO_HAPTICS := true
 TW_DEVICE_VERSION := Redmi K60 Ultra | mominqimiang
 # thermal_zone80 is "cp_master" (MT6375 charge-pump rail) and reads a constant 0
 # on this device, so TWRP fell back to a hardcoded 30 C. thermal_zone0 is "soc_max",
